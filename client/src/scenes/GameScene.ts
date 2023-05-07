@@ -2,8 +2,13 @@ import Phaser from "phaser"
 import { Client, Room } from "colyseus.js"
 import { MyRoomState, Player } from "@shared/schemas"
 
+function imageSkinPathResolver(id: string) {
+  return `/assets/${id}.png`
+}
+
 export type GameSceneProps = {
   selectedSkin: string
+  skins: string[]
 }
 
 type PlayerEntity = Phaser.GameObjects.Image
@@ -16,6 +21,12 @@ export class GameScene extends Phaser.Scene {
 
   public constructor(private readonly props: GameSceneProps) {
     super(GameScene.name)
+  }
+
+  preload() {
+    this.props.skins.forEach((id) => {
+      this.load.image(id, imageSkinPathResolver(id))
+    })
   }
 
   async create() {
