@@ -11,5 +11,9 @@
   "devDependencies": {
     "typescript": "^5.0.2",
     "vite": "^4.3.2"
+  },
+  "dependencies": {
+    "colyseus.js": "^0.15.6",
+    "phaser": "^3.60.0"
   }
 }
