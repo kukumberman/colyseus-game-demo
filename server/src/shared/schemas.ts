@@ -7,6 +7,7 @@ export class Player extends Schema {
   @type("uint16") ping: number
 
   lastPingTimestamp: number
+  inputQueue: any[] = []
 }
 
 export class MyRoomState extends Schema {

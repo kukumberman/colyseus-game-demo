@@ -40,6 +40,7 @@ export function mount(element: HTMLElement) {
       new GameScene({
         skins,
         selectedSkin,
+        speedHackEnabled: urlParams.has("speedhack"),
       }),
     ],
     scale: {

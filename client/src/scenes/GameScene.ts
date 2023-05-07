@@ -3,6 +3,12 @@ import { Client, Room } from "colyseus.js"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
 
+// todo: fetch config from server
+const velocity = 2
+
+// client side config
+const moveInterpolationFactor = 0.2
+
 function imageSkinPathResolver(id: string) {
   return `/assets/${id}.png`
 }
@@ -10,6 +16,7 @@ function imageSkinPathResolver(id: string) {
 export type GameSceneProps = {
   selectedSkin: string
   skins: string[]
+  speedHackEnabled: boolean
 }
 
 type PlayerEntity = Phaser.GameObjects.Image
@@ -20,7 +27,19 @@ export class GameScene extends Phaser.Scene {
 
   private playerEntities: Map<string, PlayerEntity> = new Map()
 
+  private elapsedTime: number = 0
+  private fixedTimeStep: number = 1000 / 60
   private debugText!: Phaser.GameObjects.Text
+
+  private cursorKeys!: Phaser.Types.Input.Keyboard.CursorKeys
+  private readonly inputPayload = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+  }
+
+  private localPlayer!: PlayerEntity
 
   public constructor(private readonly props: GameSceneProps) {
     super(GameScene.name)
@@ -33,6 +52,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   async create() {
+    this.cursorKeys = this.input.keyboard!.createCursorKeys()
     this.debugText = this.add.text(0, 0, "debug", { fontSize: 30, color: "white" })
     this.debugText.depth = 100
 
@@ -51,6 +71,18 @@ export class GameScene extends Phaser.Scene {
 
   // @ts-ignore
   update(time: number, delta: number): void {
+    if (!this.room || !this.localPlayer) {
+      return
+    }
+
+    this.elapsedTime += delta
+    while (this.elapsedTime >= this.fixedTimeStep) {
+      this.elapsedTime -= this.fixedTimeStep
+      this.fixedTick()
+    }
+
+    this.movePlayers()
+
     this.drawText()
   }
 
@@ -72,10 +104,20 @@ export class GameScene extends Phaser.Scene {
     const entity = this.add.image(player.x, player.y, player.skin)
     this.playerEntities.set(sessionId, entity)
 
+    if (this.room.sessionId === sessionId) {
+      this.localPlayer = entity
+      this.localPlayer.depth = 20
+    }
+
     entity.setData("ping", 0)
 
     player.listen("ping", (value: number) => {
       entity.setData("ping", value)
+    })
+
+    player.onChange(() => {
+      entity.setData("serverX", player.x)
+      entity.setData("serverY", player.y)
     })
   }
 
@@ -106,5 +148,48 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.debugText.text = text
+  }
+
+  private fixedTick(): void {
+    this.inputPayload.left = this.cursorKeys.left.isDown
+    this.inputPayload.right = this.cursorKeys.right.isDown
+    this.inputPayload.up = this.cursorKeys.up.isDown
+    this.inputPayload.down = this.cursorKeys.down.isDown
+
+    //! hacking - malicious code?
+    if (this.props.speedHackEnabled) {
+      for (let index = 0; index < 5; index++) {
+        this.moveLocalPlayer()
+      }
+    }
+
+    this.moveLocalPlayer()
+  }
+
+  private moveLocalPlayer() {
+    this.room.send(MessageType.Input, this.inputPayload)
+
+    if (this.inputPayload.left) {
+      this.localPlayer.x -= velocity
+    } else if (this.inputPayload.right) {
+      this.localPlayer.x += velocity
+    }
+
+    if (this.inputPayload.up) {
+      this.localPlayer.y -= velocity
+    } else if (this.inputPayload.down) {
+      this.localPlayer.y += velocity
+    }
+  }
+
+  private movePlayers() {
+    for (const [sessionId, entity] of this.playerEntities) {
+      if (sessionId === this.room.sessionId) {
+        continue
+      }
+      const { serverX, serverY } = entity.data.values
+      entity.x = Phaser.Math.Linear(entity.x, serverX, moveInterpolationFactor)
+      entity.y = Phaser.Math.Linear(entity.y, serverY, moveInterpolationFactor)
+    }
   }
 }

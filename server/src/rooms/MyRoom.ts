@@ -2,6 +2,10 @@ import { Room, Client } from "colyseus"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
 
+const fixedTimeStep = 1000 / 60
+
+const velocity = 2
+
 const mapSize = {
   width: 800,
   height: 600,
@@ -10,14 +14,17 @@ const mapSize = {
 const maxAllowedPing = 200
 
 export class MyRoom extends Room<MyRoomState> {
+  private elapsedTime: number = 0
   private pingIntervalId!: NodeJS.Timer
 
   onCreate(options: any) {
     this.setState(new MyRoomState())
 
+    this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
     this.onMessage(MessageType.Pong, this.pongMessageHandler.bind(this))
 
     this.pingIntervalId = setInterval(() => this.sendPingMessage(), 1 * 1000)
+    this.setSimulationInterval(this.simulationIntervalHandler.bind(this))
   }
 
   onJoin(client: Client, options: any) {
@@ -59,5 +66,41 @@ export class MyRoom extends Room<MyRoomState> {
       player.lastPingTimestamp = Date.now()
       client.send(MessageType.Ping)
     })
+  }
+
+  private simulationIntervalHandler(deltaTime: number) {
+    this.elapsedTime += deltaTime
+
+    while (this.elapsedTime >= fixedTimeStep) {
+      this.elapsedTime -= fixedTimeStep
+      this.fixedUpdate()
+    }
+  }
+
+  private fixedUpdate() {
+    this.state.players.forEach((player) => {
+      let input: any
+
+      // dequeue player inputs
+      while ((input = player.inputQueue.shift())) {
+        if (input.left) {
+          player.x -= velocity
+        } else if (input.right) {
+          player.x += velocity
+        }
+
+        if (input.up) {
+          player.y -= velocity
+        } else if (input.down) {
+          player.y += velocity
+        }
+      }
+    })
+  }
+
+  private inputMessageHandler(client: Client, input: any) {
+    // todo: validate incoming data
+    const player = this.state.players.get(client.sessionId)!
+    player.inputQueue.push(input)
   }
 }

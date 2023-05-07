@@ -1,6 +1,7 @@
 export enum MessageType {
   Ping = "ping",
   Pong = "pong",
+  Input = "input",
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
