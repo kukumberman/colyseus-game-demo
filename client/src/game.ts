@@ -10,7 +10,11 @@ export function mount(element: HTMLElement) {
     physics: {
       default: "arcade",
     },
-    scene: [GameScene],
+    scene: [
+      new GameScene({
+        selectedSkin: "todo",
+      }),
+    ],
     scale: {
       mode: Phaser.Scale.RESIZE,
     },
