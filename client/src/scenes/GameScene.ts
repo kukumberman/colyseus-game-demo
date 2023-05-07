@@ -9,6 +9,15 @@ const velocity = 2
 // client side config
 const moveInterpolationFactor = 0.2
 
+const config = {
+  colors: {
+    localPlayerLocalState: 0x00ff00,
+    localPlayerServerState: 0xff0000,
+    remotePlayerServerState: 0xff00ff,
+    remotePlayerInterpolatedState: 0x0000ff,
+  },
+}
+
 function imageSkinPathResolver(id: string) {
   return `/assets/${id}.png`
 }
@@ -30,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   private elapsedTime: number = 0
   private fixedTimeStep: number = 1000 / 60
   private debugText!: Phaser.GameObjects.Text
+  private graphics!: Phaser.GameObjects.Graphics
 
   private cursorKeys!: Phaser.Types.Input.Keyboard.CursorKeys
   private readonly inputPayload = {
@@ -55,6 +65,8 @@ export class GameScene extends Phaser.Scene {
     this.cursorKeys = this.input.keyboard!.createCursorKeys()
     this.debugText = this.add.text(0, 0, "debug", { fontSize: 30, color: "white" })
     this.debugText.depth = 100
+    this.graphics = this.add.graphics()
+    this.graphics.depth = 50
 
     this.client = new Client("ws://localhost:2567")
     console.log("Joining room...")
@@ -84,6 +96,7 @@ export class GameScene extends Phaser.Scene {
     this.movePlayers()
 
     this.drawText()
+    this.drawGizmos()
   }
 
   private onRoomError(code: number, reason?: string) {
@@ -148,6 +161,49 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.debugText.text = text
+  }
+
+  private drawGizmos() {
+    this.graphics.clear()
+
+    for (const [sessionId, entity] of this.playerEntities) {
+      const { serverX, serverY } = entity.data.values
+
+      if (sessionId === this.room.sessionId) {
+        this.graphics.lineStyle(1, config.colors.localPlayerServerState)
+        this.graphics.strokeRect(
+          serverX - entity.width * 0.5,
+          serverY - entity.height * 0.5,
+          entity.width,
+          entity.height
+        )
+
+        this.graphics.lineStyle(1, config.colors.localPlayerLocalState)
+        this.graphics.strokeRect(
+          entity.x - entity.width * 0.5,
+          entity.y - entity.height * 0.5,
+          entity.width,
+          entity.height
+        )
+        continue
+      }
+
+      this.graphics.lineStyle(1, config.colors.remotePlayerServerState)
+      this.graphics.strokeRect(
+        serverX - entity.width * 0.5,
+        serverY - entity.height * 0.5,
+        entity.width,
+        entity.height
+      )
+
+      this.graphics.lineStyle(1, config.colors.remotePlayerInterpolatedState)
+      this.graphics.strokeRect(
+        entity.x - entity.width * 0.5,
+        entity.y - entity.height * 0.5,
+        entity.width,
+        entity.height
+      )
+    }
   }
 
   private fixedTick(): void {
