@@ -7,14 +7,18 @@ import { MessageType, RoomLeaveCode } from "@shared/enums"
 const velocity = 2
 
 // client side config
-const moveInterpolationFactor = 0.2
-
 const config = {
-  colors: {
-    localPlayerLocalState: 0x00ff00,
-    localPlayerServerState: 0xff0000,
-    remotePlayerServerState: 0xff00ff,
-    remotePlayerInterpolatedState: 0x0000ff,
+  moveInterpolationFactor: 0.7, // [0..1]
+  rotateInterpolationFactor: 20, // [0..360]
+  gizmos: {
+    forwardLineRadius: 50,
+    lineWidth: 1,
+    colors: {
+      localPlayerLocalState: 0x00ff00,
+      localPlayerServerState: 0xff0000,
+      remotePlayerServerState: 0xff00ff,
+      remotePlayerInterpolatedState: 0x0000ff,
+    },
   },
 }
 
@@ -26,6 +30,7 @@ export type GameSceneProps = {
   selectedSkin: string
   skins: string[]
   speedHackEnabled: boolean
+  nogizmos: boolean
 }
 
 type PlayerEntity = Phaser.GameObjects.Image
@@ -93,10 +98,14 @@ export class GameScene extends Phaser.Scene {
       this.fixedTick()
     }
 
+    this.rotateLocalPlayer()
     this.movePlayers()
 
     this.drawText()
-    this.drawGizmos()
+
+    if (!this.props.nogizmos) {
+      this.drawGizmos()
+    }
   }
 
   private onRoomError(code: number, reason?: string) {
@@ -131,6 +140,7 @@ export class GameScene extends Phaser.Scene {
     player.onChange(() => {
       entity.setData("serverX", player.x)
       entity.setData("serverY", player.y)
+      entity.setData("serverAngle", player.angle)
     })
   }
 
@@ -166,29 +176,51 @@ export class GameScene extends Phaser.Scene {
   private drawGizmos() {
     this.graphics.clear()
 
+    let angle = 0
+
     for (const [sessionId, entity] of this.playerEntities) {
-      const { serverX, serverY } = entity.data.values
+      const { serverX, serverY, serverAngle } = entity.data.values
 
-      if (sessionId === this.room.sessionId) {
-        this.graphics.lineStyle(1, config.colors.localPlayerServerState)
-        this.graphics.strokeRect(
-          serverX - entity.width * 0.5,
-          serverY - entity.height * 0.5,
-          entity.width,
-          entity.height
-        )
+      const isMe = sessionId === this.room.sessionId
 
-        this.graphics.lineStyle(1, config.colors.localPlayerLocalState)
-        this.graphics.strokeRect(
-          entity.x - entity.width * 0.5,
-          entity.y - entity.height * 0.5,
-          entity.width,
-          entity.height
-        )
-        continue
-      }
+      const colorServerState = isMe
+        ? config.gizmos.colors.localPlayerServerState
+        : config.gizmos.colors.remotePlayerServerState
+      const colorLocalState = isMe
+        ? config.gizmos.colors.localPlayerLocalState
+        : config.gizmos.colors.remotePlayerInterpolatedState
 
-      this.graphics.lineStyle(1, config.colors.remotePlayerServerState)
+      this.graphics.lineStyle(config.gizmos.lineWidth, colorServerState)
+      this.graphics.strokeRect(
+        serverX - entity.width * 0.5,
+        serverY - entity.height * 0.5,
+        entity.width,
+        entity.height
+      )
+      angle = serverAngle * Phaser.Math.DEG_TO_RAD
+      this.graphics.lineBetween(
+        serverX,
+        serverY,
+        serverX + Math.sin(-angle) * config.gizmos.forwardLineRadius,
+        serverY + Math.cos(-angle) * config.gizmos.forwardLineRadius
+      )
+
+      this.graphics.lineStyle(config.gizmos.lineWidth, colorLocalState)
+      this.graphics.strokeRect(
+        entity.x - entity.width * 0.5,
+        entity.y - entity.height * 0.5,
+        entity.width,
+        entity.height
+      )
+      angle = entity.angle * Phaser.Math.DEG_TO_RAD
+      this.graphics.lineBetween(
+        entity.x,
+        entity.y,
+        entity.x + Math.sin(-angle) * config.gizmos.forwardLineRadius,
+        entity.y + Math.cos(-angle) * config.gizmos.forwardLineRadius
+      )
+
+      this.graphics.lineStyle(config.gizmos.lineWidth, colorServerState)
       this.graphics.strokeRect(
         serverX - entity.width * 0.5,
         serverY - entity.height * 0.5,
@@ -196,7 +228,7 @@ export class GameScene extends Phaser.Scene {
         entity.height
       )
 
-      this.graphics.lineStyle(1, config.colors.remotePlayerInterpolatedState)
+      this.graphics.lineStyle(config.gizmos.lineWidth, colorLocalState)
       this.graphics.strokeRect(
         entity.x - entity.width * 0.5,
         entity.y - entity.height * 0.5,
@@ -238,14 +270,33 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private rotateLocalPlayer() {
+    const pointer = this.input.activePointer
+    const direction = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY)
+      .subtract(this.localPlayer)
+      .normalize()
+
+    const angle = Phaser.Math.Angle.WrapDegrees(
+      Math.atan2(direction.y, direction.x) * Phaser.Math.RAD_TO_DEG - 90
+    )
+    this.localPlayer.angle = angle
+    this.room.send(MessageType.Rotation, angle)
+  }
+
   private movePlayers() {
     for (const [sessionId, entity] of this.playerEntities) {
       if (sessionId === this.room.sessionId) {
         continue
       }
-      const { serverX, serverY } = entity.data.values
-      entity.x = Phaser.Math.Linear(entity.x, serverX, moveInterpolationFactor)
-      entity.y = Phaser.Math.Linear(entity.y, serverY, moveInterpolationFactor)
+      const { serverX, serverY, serverAngle } = entity.data.values
+      entity.x = Phaser.Math.Linear(entity.x, serverX, config.moveInterpolationFactor)
+      entity.y = Phaser.Math.Linear(entity.y, serverY, config.moveInterpolationFactor)
+      entity.angle =
+        Phaser.Math.Angle.RotateTo(
+          entity.angle * Phaser.Math.DEG_TO_RAD,
+          serverAngle * Phaser.Math.DEG_TO_RAD,
+          config.rotateInterpolationFactor * Phaser.Math.DEG_TO_RAD
+        ) * Phaser.Math.RAD_TO_DEG
     }
   }
 }

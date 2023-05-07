@@ -21,6 +21,7 @@ export class MyRoom extends Room<MyRoomState> {
     this.setState(new MyRoomState())
 
     this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
+    this.onMessage(MessageType.Rotation, this.rotationMessageHandler.bind(this))
     this.onMessage(MessageType.Pong, this.pongMessageHandler.bind(this))
 
     this.pingIntervalId = setInterval(() => this.sendPingMessage(), 1 * 1000)
@@ -102,5 +103,11 @@ export class MyRoom extends Room<MyRoomState> {
     // todo: validate incoming data
     const player = this.state.players.get(client.sessionId)!
     player.inputQueue.push(input)
+  }
+
+  private rotationMessageHandler(client: Client, angle: number) {
+    // todo: validate incoming data
+    const player = this.state.players.get(client.sessionId)!
+    player.angle = angle % 360
   }
 }

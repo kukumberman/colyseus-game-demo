@@ -41,6 +41,7 @@ export function mount(element: HTMLElement) {
         skins,
         selectedSkin,
         speedHackEnabled: urlParams.has("speedhack"),
+        nogizmos: urlParams.has("nogizmos"),
       }),
     ],
     scale: {
