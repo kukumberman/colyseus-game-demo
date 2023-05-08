@@ -219,22 +219,6 @@ export class GameScene extends Phaser.Scene {
         entity.x + Math.sin(-angle) * config.gizmos.forwardLineRadius,
         entity.y + Math.cos(-angle) * config.gizmos.forwardLineRadius
       )
-
-      this.graphics.lineStyle(config.gizmos.lineWidth, colorServerState)
-      this.graphics.strokeRect(
-        serverX - entity.width * 0.5,
-        serverY - entity.height * 0.5,
-        entity.width,
-        entity.height
-      )
-
-      this.graphics.lineStyle(config.gizmos.lineWidth, colorLocalState)
-      this.graphics.strokeRect(
-        entity.x - entity.width * 0.5,
-        entity.y - entity.height * 0.5,
-        entity.width,
-        entity.height
-      )
     }
   }
 
