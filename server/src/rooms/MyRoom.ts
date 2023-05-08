@@ -1,17 +1,20 @@
 import { Room, Client } from "colyseus"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
+import { ServerConfig } from "@shared/types"
 
 const fixedTimeStep = 1000 / 60
 
-const velocity = 2
-
-const mapSize = {
-  width: 800,
-  height: 600,
+const config: ServerConfig = {
+  mapSize: {
+    width: 640,
+    height: 480,
+  },
+  player: {
+    velocity: 2,
+  },
+  maxAllowedPing: 200,
 }
-
-const maxAllowedPing = 200
 
 export class MyRoom extends Room<MyRoomState> {
   private elapsedTime: number = 0
@@ -23,6 +26,9 @@ export class MyRoom extends Room<MyRoomState> {
     this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
     this.onMessage(MessageType.Rotation, this.rotationMessageHandler.bind(this))
     this.onMessage(MessageType.Pong, this.pongMessageHandler.bind(this))
+    this.onMessage(MessageType.FetchConfig, (client) => {
+      client.send(MessageType.FetchConfig, config)
+    })
 
     this.pingIntervalId = setInterval(() => this.sendPingMessage(), 1 * 1000)
     this.setSimulationInterval(this.simulationIntervalHandler.bind(this))
@@ -36,8 +42,8 @@ export class MyRoom extends Room<MyRoomState> {
     // todo: validate incoming skin
     player.skin = options.skin
 
-    player.x = Math.random() * mapSize.width
-    player.y = Math.random() * mapSize.height
+    player.x = Math.random() * config.mapSize.width
+    player.y = Math.random() * config.mapSize.height
     player.angle = 0
     player.ping = 0
     player.lastPingTimestamp = Date.now()
@@ -58,7 +64,7 @@ export class MyRoom extends Room<MyRoomState> {
   private pongMessageHandler(client: Client) {
     const player = this.state.players.get(client.sessionId)!
     const ping = Date.now() - player.lastPingTimestamp
-    if (ping > maxAllowedPing) {
+    if (ping > config.maxAllowedPing) {
       client.leave(RoomLeaveCode.MaxPingReached)
     }
     player.ping = ping
@@ -88,15 +94,15 @@ export class MyRoom extends Room<MyRoomState> {
       // dequeue player inputs
       while ((input = player.inputQueue.shift())) {
         if (input.left) {
-          player.x -= velocity
+          player.x -= config.player.velocity
         } else if (input.right) {
-          player.x += velocity
+          player.x += config.player.velocity
         }
 
         if (input.up) {
-          player.y -= velocity
+          player.y -= config.player.velocity
         } else if (input.down) {
-          player.y += velocity
+          player.y += config.player.velocity
         }
       }
     })

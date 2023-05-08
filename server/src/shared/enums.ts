@@ -3,6 +3,7 @@ export enum MessageType {
   Pong = "pong",
   Input = "input",
   Rotation = "rotation",
+  FetchConfig = "fetchConfig",
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code

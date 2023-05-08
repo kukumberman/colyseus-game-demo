@@ -2,9 +2,8 @@ import Phaser from "phaser"
 import { Client, Room } from "colyseus.js"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
-
-// todo: fetch config from server
-const velocity = 2
+import { ServerConfig } from "@shared/types"
+import { sendAsync } from "../utils"
 
 // client side config
 const config = {
@@ -55,6 +54,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private localPlayer!: PlayerEntity
+  private serverConfig!: ServerConfig
 
   public constructor(private readonly props: GameSceneProps) {
     super(GameScene.name)
@@ -78,17 +78,27 @@ export class GameScene extends Phaser.Scene {
     this.room = await this.client.joinOrCreate("my_room", { skin: this.props.selectedSkin })
     console.log("Joined successfully!")
 
+    // @ts-ignore
+    window.room = this.room
+
     this.room.onError(this.onRoomError.bind(this))
     this.room.onLeave(this.onRoomLeave.bind(this))
 
     this.room.onMessage(MessageType.Ping, this.pingMessageHandler.bind(this))
     this.room.state.players.onAdd(this.onPlayerAdded.bind(this))
     this.room.state.players.onRemove(this.onPlayerRemoved.bind(this))
+
+    this.serverConfig = await sendAsync(this.room, MessageType.FetchConfig)
+
+    const rect = this.add
+      .rectangle(0, 0, this.serverConfig.mapSize.width, this.serverConfig.mapSize.height, 0xa4a4a4)
+      .setOrigin(0, 0)
+    rect.depth = -1
   }
 
   // @ts-ignore
   update(time: number, delta: number): void {
-    if (!this.room || !this.localPlayer) {
+    if (!this.room || !this.localPlayer || !this.serverConfig) {
       return
     }
 
@@ -131,7 +141,10 @@ export class GameScene extends Phaser.Scene {
       this.localPlayer.depth = 20
     }
 
-    entity.setData("ping", 0)
+    entity.setData("serverX", player.x)
+    entity.setData("serverY", player.y)
+    entity.setData("serverAngle", player.angle)
+    entity.setData("ping", player.ping)
 
     player.listen("ping", (value: number) => {
       entity.setData("ping", value)
@@ -242,15 +255,15 @@ export class GameScene extends Phaser.Scene {
     this.room.send(MessageType.Input, this.inputPayload)
 
     if (this.inputPayload.left) {
-      this.localPlayer.x -= velocity
+      this.localPlayer.x -= this.serverConfig.player.velocity
     } else if (this.inputPayload.right) {
-      this.localPlayer.x += velocity
+      this.localPlayer.x += this.serverConfig.player.velocity
     }
 
     if (this.inputPayload.up) {
-      this.localPlayer.y -= velocity
+      this.localPlayer.y -= this.serverConfig.player.velocity
     } else if (this.inputPayload.down) {
-      this.localPlayer.y += velocity
+      this.localPlayer.y += this.serverConfig.player.velocity
     }
   }
 
