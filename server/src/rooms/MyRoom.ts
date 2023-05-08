@@ -66,7 +66,7 @@ export class MyRoom extends Room<MyRoomState> {
     const player = this.state.players.get(client.sessionId)!
     const ping = Date.now() - player.lastPingTimestamp
     if (ping > config.maxAllowedPing) {
-      client.leave(RoomLeaveCode.MaxPingReached)
+      client.send(MessageType.MaxPingReached, ping)
     }
     player.ping = ping
   }

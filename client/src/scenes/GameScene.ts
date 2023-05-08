@@ -85,7 +85,9 @@ export class GameScene extends Phaser.Scene {
     this.room.onError(this.onRoomError.bind(this))
     this.room.onLeave(this.onRoomLeave.bind(this))
 
-    this.room.onMessage(MessageType.Ping, this.pingMessageHandler.bind(this))
+    this.room.onMessage(MessageType.Ping, this.messageHandler_Ping.bind(this))
+    this.room.onMessage(MessageType.MaxPingReached, this.messageHandler_MaxPingReached.bind(this))
+
     this.room.state.players.onAdd(this.onPlayerAdded.bind(this))
     this.room.state.players.onRemove(this.onPlayerRemoved.bind(this))
 
@@ -167,8 +169,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private pingMessageHandler() {
+  private messageHandler_Ping() {
     this.room.send(MessageType.Pong)
+  }
+
+  private messageHandler_MaxPingReached(ping: number) {
+    console.warn(MessageType.MaxPingReached, ping)
   }
 
   private drawText() {

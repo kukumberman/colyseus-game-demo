@@ -4,6 +4,7 @@ export enum MessageType {
   Input = "input",
   Rotation = "rotation",
   FetchConfig = "fetchConfig",
+  MaxPingReached = "maxPingReached",
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
