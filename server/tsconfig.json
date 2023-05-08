@@ -2,7 +2,7 @@
   "compilerOptions": {
     "outDir": "build",
     "target": "ESNext",
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "strict": true,
     "allowJs": true,
@@ -15,7 +15,13 @@
 
     "paths": {
       "@shared/*": ["./src/shared/*"]
-    }
+    },
+
+    "plugins": [
+      {
+        "transform": "typescript-transform-paths"
+      }
+    ]
   },
   "include": ["src"]
 }

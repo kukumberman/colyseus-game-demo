@@ -8,9 +8,10 @@
     "node": ">= 16.13.0"
   },
   "scripts": {
-    "start": "tsx watch src/index.ts",
+    "start": "node build/index.js",
+    "dev": "tsx watch src/index.ts",
     "loadtest": "tsx loadtest/example.ts --room my_room --numClients 2",
-    "build": "npm run clean && tsc",
+    "build": "npm run clean && tspc",
     "clean": "rimraf build",
     "test": "mocha -r tsx test/**_test.ts --exit --timeout 15000"
   },
@@ -27,8 +28,10 @@
     "@types/mocha": "^10.0.1",
     "mocha": "^10.2.0",
     "rimraf": "^5.0.0",
+    "ts-patch": "^3.0.0-beta3",
     "tsx": "^3.12.6",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "typescript-transform-paths": "^3.4.6"
   },
   "dependencies": {
     "@colyseus/tools": "^0.15.0",
