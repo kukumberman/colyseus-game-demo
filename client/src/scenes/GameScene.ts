@@ -30,6 +30,7 @@ export type GameSceneProps = {
   skins: string[]
   speedHackEnabled: boolean
   nogizmos: boolean
+  BACKEND_WS_URL: string
 }
 
 type PlayerEntity = Phaser.GameObjects.Image
@@ -73,7 +74,7 @@ export class GameScene extends Phaser.Scene {
     this.graphics = this.add.graphics()
     this.graphics.depth = 50
 
-    this.client = new Client("ws://localhost:2567")
+    this.client = new Client(this.props.BACKEND_WS_URL)
     console.log("Joining room...")
     this.room = await this.client.joinOrCreate("my_room", { skin: this.props.selectedSkin })
     console.log("Joined successfully!")

@@ -1,3 +1,5 @@
+import path from "path";
+import express from "express";
 import config from "@colyseus/tools";
 import { monitor } from "@colyseus/monitor";
 
@@ -23,6 +25,14 @@ export default config({
          */
         app.get("/", (req, res) => {
             res.send("It's time to kick ass and chew bubblegum!");
+        });
+
+        const publicPath = path.resolve("../client/dist");
+        app.use(express.static(publicPath));
+
+        app.get("/play", (req, res) => {
+            const indexPath = path.join(publicPath, "index.html");
+            res.sendFile(indexPath);
         });
 
         /**

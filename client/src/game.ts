@@ -1,3 +1,4 @@
+import { BACKEND_WS_URL } from "./backend"
 import { GameScene } from "./scenes/GameScene"
 
 const skins = [
@@ -42,6 +43,7 @@ export function mount(element: HTMLElement) {
         selectedSkin,
         speedHackEnabled: urlParams.has("speedhack"),
         nogizmos: urlParams.has("nogizmos"),
+        BACKEND_WS_URL,
       }),
     ],
     scale: {
