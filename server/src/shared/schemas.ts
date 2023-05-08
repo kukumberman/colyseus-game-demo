@@ -13,4 +13,5 @@ export class Player extends Schema {
 
 export class MyRoomState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>()
+  @type("float32") elapsedTime!: number
 }

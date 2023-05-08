@@ -22,6 +22,7 @@ export class MyRoom extends Room<MyRoomState> {
 
   onCreate(options: any) {
     this.setState(new MyRoomState())
+    this.state.elapsedTime = 0
 
     this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
     this.onMessage(MessageType.Rotation, this.rotationMessageHandler.bind(this))
@@ -80,6 +81,7 @@ export class MyRoom extends Room<MyRoomState> {
 
   private simulationIntervalHandler(deltaTime: number) {
     this.elapsedTime += deltaTime
+    this.state.elapsedTime += deltaTime / 1000
 
     while (this.elapsedTime >= fixedTimeStep) {
       this.elapsedTime -= fixedTimeStep

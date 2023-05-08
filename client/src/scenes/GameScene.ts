@@ -173,6 +173,7 @@ export class GameScene extends Phaser.Scene {
 
   private drawText() {
     let text = ""
+    text += `Time: ${this.room.state.elapsedTime.toFixed(2)}` + "\n"
 
     Array.from(this.playerEntities.keys()).forEach((sessionId: string, index: number) => {
       const entity = this.playerEntities.get(sessionId)!
