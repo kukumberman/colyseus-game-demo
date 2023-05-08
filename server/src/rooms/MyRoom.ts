@@ -38,6 +38,9 @@ export class MyRoom extends Room<MyRoomState> {
 
     player.x = Math.random() * mapSize.width
     player.y = Math.random() * mapSize.height
+    player.angle = 0
+    player.ping = 0
+    player.lastPingTimestamp = Date.now()
 
     this.state.players.set(client.sessionId, player)
   }
