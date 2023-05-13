@@ -9,11 +9,17 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/node": "^20.1.4",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "@vitejs/plugin-react": "^4.0.0",
     "typescript": "^5.0.2",
     "vite": "^4.3.2"
   },
   "dependencies": {
     "colyseus.js": "^0.15.6",
-    "phaser": "^3.60.0"
+    "phaser": "^3.60.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
