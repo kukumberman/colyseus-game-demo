@@ -76,27 +76,18 @@ export class GameScene extends Phaser.Scene {
 
     this.client = new Client(this.props.BACKEND_WS_URL)
     console.log("Joining room...")
-    this.room = await this.client.joinOrCreate("my_room", { skin: this.props.selectedSkin })
-    console.log("Joined successfully!")
-
-    // @ts-ignore
-    window.room = this.room
-
-    this.room.onError(this.onRoomError.bind(this))
-    this.room.onLeave(this.onRoomLeave.bind(this))
-
-    this.room.onMessage(MessageType.Ping, this.messageHandler_Ping.bind(this))
-    this.room.onMessage(MessageType.MaxPingReached, this.messageHandler_MaxPingReached.bind(this))
-
-    this.room.state.players.onAdd(this.onPlayerAdded.bind(this))
-    this.room.state.players.onRemove(this.onPlayerRemoved.bind(this))
-
-    this.serverConfig = await sendAsync(this.room, MessageType.FetchConfig)
-
-    const rect = this.add
-      .rectangle(0, 0, this.serverConfig.mapSize.width, this.serverConfig.mapSize.height, 0xa4a4a4)
-      .setOrigin(0, 0)
-    rect.depth = -1
+    try {
+      this.room = await this.client.joinOrCreate("my_room", { skin: this.props.selectedSkin })
+      console.log("Joined successfully!")
+      // @ts-ignore
+      window.room = this.room
+      this.listenRoomEvents()
+      await this.fetchConfigAndPrepareMap()
+    } catch (e) {
+      if (e instanceof Error) {
+        console.log(e.message)
+      }
+    }
   }
 
   // @ts-ignore
@@ -119,6 +110,26 @@ export class GameScene extends Phaser.Scene {
     if (!this.props.nogizmos) {
       this.drawGizmos()
     }
+  }
+
+  private listenRoomEvents() {
+    this.room.onError(this.onRoomError.bind(this))
+    this.room.onLeave(this.onRoomLeave.bind(this))
+
+    this.room.onMessage(MessageType.Ping, this.messageHandler_Ping.bind(this))
+    this.room.onMessage(MessageType.MaxPingReached, this.messageHandler_MaxPingReached.bind(this))
+
+    this.room.state.players.onAdd(this.onPlayerAdded.bind(this))
+    this.room.state.players.onRemove(this.onPlayerRemoved.bind(this))
+  }
+
+  private async fetchConfigAndPrepareMap() {
+    this.serverConfig = await sendAsync(this.room, MessageType.FetchConfig)
+
+    const rect = this.add
+      .rectangle(0, 0, this.serverConfig.mapSize.width, this.serverConfig.mapSize.height, 0xa4a4a4)
+      .setOrigin(0, 0)
+    rect.depth = -1
   }
 
   private onRoomError(code: number, reason?: string) {
