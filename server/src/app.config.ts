@@ -31,7 +31,7 @@ export default config({
         const publicPath = path.resolve("../client/dist");
         app.use(express.static(publicPath));
 
-        app.get("/play", (req, res) => {
+        app.get("/play*", (req, res) => {
             const indexPath = path.join(publicPath, "index.html");
             res.sendFile(indexPath);
         });
