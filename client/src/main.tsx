@@ -31,7 +31,7 @@ function AppContextProvider() {
 
   return (
     <AppContext.Provider value={{ client, game }}>
-      <App />
+      <App basename="/play" />
     </AppContext.Provider>
   )
 }

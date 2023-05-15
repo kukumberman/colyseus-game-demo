@@ -3,10 +3,14 @@ import { GameView } from "./components/GameView"
 import { LobbyView } from "./components/LobbyView"
 import { RoomView } from "./components/RoomView"
 
-export function App() {
+type AppProps = {
+  basename: string
+}
+
+export function App(props: AppProps) {
   const roomName = "my_room"
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={props.basename}>
       <Routes>
         <Route
           path="/"
