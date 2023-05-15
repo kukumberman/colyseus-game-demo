@@ -1,28 +1,52 @@
 import { Room, Client } from "colyseus"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
-import { ServerConfig } from "@shared/types"
+import { config } from "../config"
 
-const fixedTimeStep = 1000 / 60
+function validateSkin(value: unknown) {
+  const defaultSkin = config.skins[0]
 
-const config: ServerConfig = {
-  mapSize: {
-    width: 640,
-    height: 480,
-  },
-  player: {
-    velocity: 2,
-  },
-  maxAllowedPing: 200,
+  const validateNumber = (valueAsNumber: number) => {
+    if (Number.isNaN(valueAsNumber) || !Number.isFinite(valueAsNumber)) {
+      return defaultSkin
+    }
+
+    if (!Number.isInteger(valueAsNumber)) {
+      valueAsNumber = Math.floor(valueAsNumber)
+    }
+
+    if (valueAsNumber < 0 || valueAsNumber >= config.skins.length) {
+      return defaultSkin
+    }
+
+    return config.skins[valueAsNumber]
+  }
+
+  if (typeof value === "string") {
+    if (config.skins.includes(value)) {
+      return value
+    }
+
+    const valueAsNumber = Number(value)
+    return validateNumber(valueAsNumber)
+  }
+
+  if (typeof value === "number") {
+    return validateNumber(value)
+  }
+
+  return defaultSkin
 }
 
 export class MyRoom extends Room<MyRoomState> {
+  private fixedTimeStep: number = 0
   private elapsedTime: number = 0
   private pingIntervalId!: NodeJS.Timer
 
   onCreate(options: any) {
     this.setState(new MyRoomState())
     this.state.elapsedTime = 0
+    this.fixedTimeStep = 1000 / config.tickRate
 
     this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
     this.onMessage(MessageType.Rotation, this.rotationMessageHandler.bind(this))
@@ -39,9 +63,11 @@ export class MyRoom extends Room<MyRoomState> {
     console.log(client.sessionId, "joined!")
 
     const player = new Player()
+    player.sessionId = client.sessionId
 
-    // todo: validate incoming skin
-    player.skin = options.skin
+    // todo: validate incoming skin and name
+    player.skin = validateSkin(options.skin)
+    player.name = options.name
 
     player.x = Math.random() * config.mapSize.width
     player.y = Math.random() * config.mapSize.height
@@ -83,8 +109,8 @@ export class MyRoom extends Room<MyRoomState> {
     this.elapsedTime += deltaTime
     this.state.elapsedTime += deltaTime / 1000
 
-    while (this.elapsedTime >= fixedTimeStep) {
-      this.elapsedTime -= fixedTimeStep
+    while (this.elapsedTime >= this.fixedTimeStep) {
+      this.elapsedTime -= this.fixedTimeStep
       this.fixedUpdate()
     }
   }

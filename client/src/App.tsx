@@ -1,56 +1,31 @@
-import React, { useEffect, useRef, useState } from "react"
-import Phaser from "phaser"
-import { mount } from "./game"
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom"
+import { GameView } from "./components/GameView"
+import { LobbyView } from "./components/LobbyView"
+import { RoomView } from "./components/RoomView"
 
-type AppProps = {
-  element: HTMLElement
-}
-
-export function App(props: AppProps) {
-  const [count, setCount] = useState(0)
-  const [fullscreenSupported, setFullscreenSupported] = useState(false)
-  const [fullscreen, setFullscreen] = useState(false)
-  const ref = useRef<Phaser.Game | null>(null)
-
-  useEffect(() => {
-    if (ref.current === null) {
-      const game = mount(props.element)
-      ref.current = game
-      setFullscreenSupported(game.scale.fullscreen.available)
-    }
-  }, [])
-
-  function onClickToggleFullscreen() {
-    const game = ref.current!
-    setFullscreen(!game.scale.isFullscreen)
-    if (game.scale.isFullscreen) {
-      game.scale.stopFullscreen()
-    } else {
-      game.scale.startFullscreen()
-    }
-  }
-
+export function App() {
+  const roomName = "my_room"
   return (
-    <React.Fragment>
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-        }}
-      >
-        <div>Count: {count}</div>
-        <div>
-          <button onClick={() => setCount((prev) => prev + 1)}>Increment</button>
-        </div>
-        {fullscreenSupported ? (
-          <div>
-            <button onClick={onClickToggleFullscreen}>
-              {fullscreen ? "Minimize" : "Fullscreen"}
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </React.Fragment>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<GameView />}
+        >
+          <Route
+            path="/"
+            element={<LobbyView roomName={roomName} />}
+          />
+          <Route
+            path="room/:id"
+            element={<RoomView roomName={roomName} />}
+          />
+          <Route
+            path="*"
+            element={<Navigate to="/" />}
+          />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }

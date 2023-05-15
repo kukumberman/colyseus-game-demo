@@ -1,31 +1,7 @@
-import { BACKEND_WS_URL } from "./backend"
+import Phaser from "phaser"
 import { GameScene } from "./scenes/GameScene"
 
-const skins = [
-  "slightly-smiling-face_1f642",
-  "smiling-face-with-sunglasses_1f60e",
-  "smiling-face-with-horns_1f608",
-]
-
 const urlParams = new URLSearchParams(window.location.search)
-const selectedSkin = parseSkin(urlParams.get("skin"))
-
-function parseSkin(value: string | null) {
-  if (value === null) {
-    return skins[0]
-  }
-
-  if (skins.includes(value)) {
-    return value
-  }
-
-  const index = Number(value)
-  if (Number.isNaN(index) || index < 0 || index >= skins.length) {
-    return skins[0]
-  }
-
-  return skins[index]
-}
 
 export function mount(element: HTMLElement) {
   return new Phaser.Game({
@@ -39,11 +15,8 @@ export function mount(element: HTMLElement) {
     },
     scene: [
       new GameScene({
-        skins,
-        selectedSkin,
         speedHackEnabled: urlParams.has("speedhack"),
         nogizmos: urlParams.has("nogizmos"),
-        BACKEND_WS_URL,
       }),
     ],
     scale: {

@@ -26,20 +26,19 @@ function imageSkinPathResolver(id: string) {
 }
 
 export type GameSceneProps = {
-  selectedSkin: string
-  skins: string[]
   speedHackEnabled: boolean
   nogizmos: boolean
-  BACKEND_WS_URL: string
 }
 
 type PlayerEntity = Phaser.GameObjects.Image
 
 export class GameScene extends Phaser.Scene {
-  private client!: Client
-  private room!: Room<MyRoomState>
+  private room!: Room<MyRoomState> | undefined
+  private serverConfig!: ServerConfig | undefined
 
   private playerEntities: Map<string, PlayerEntity> = new Map()
+  private localPlayer!: PlayerEntity | undefined
+  private rect!: Phaser.GameObjects.Rectangle | undefined
 
   private elapsedTime: number = 0
   private fixedTimeStep: number = 1000 / 60
@@ -54,40 +53,14 @@ export class GameScene extends Phaser.Scene {
     down: false,
   }
 
-  private localPlayer!: PlayerEntity
-  private serverConfig!: ServerConfig
-
   public constructor(private readonly props: GameSceneProps) {
     super(GameScene.name)
   }
 
-  preload() {
-    this.props.skins.forEach((id) => {
-      this.load.image(id, imageSkinPathResolver(id))
-    })
-  }
+  create() {
+    this.game.events.on("FOOBAR", this.initialize, this)
 
-  async create() {
     this.cursorKeys = this.input.keyboard!.createCursorKeys()
-    this.debugText = this.add.text(0, 0, "debug", { fontSize: 30, color: "white" })
-    this.debugText.depth = 100
-    this.graphics = this.add.graphics()
-    this.graphics.depth = 50
-
-    this.client = new Client(this.props.BACKEND_WS_URL)
-    console.log("Joining room...")
-    try {
-      this.room = await this.client.joinOrCreate("my_room", { skin: this.props.selectedSkin })
-      console.log("Joined successfully!")
-      // @ts-ignore
-      window.room = this.room
-      this.listenRoomEvents()
-      await this.fetchConfigAndPrepareMap()
-    } catch (e) {
-      if (e instanceof Error) {
-        console.log(e.message)
-      }
-    }
   }
 
   // @ts-ignore
@@ -112,7 +85,61 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // @ts-ignore
+  private async initialize(client: Client, room: Room, serverConfig: ServerConfig) {
+    // @ts-ignore
+    window.room = room
+
+    this.debugText = this.add.text(0, 0, "debug", { fontSize: 30, color: "white" })
+    this.debugText.depth = 100
+    this.graphics = this.add.graphics()
+    this.graphics.depth = 50
+
+    console.log(client, room, serverConfig)
+
+    this.room = room
+    this.serverConfig = serverConfig
+    this.listenRoomEvents()
+
+    await this.fetchConfigAndPrepareMap()
+
+    this.serverConfig.skins.forEach((id) => {
+      this.load.image(id, imageSkinPathResolver(id))
+    })
+
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      Array.from(this.playerEntities.entries()).forEach(([sessionId, entity]) => {
+        const player = this.room!.state.players.get(sessionId)!
+        entity.setTexture(player.skin)
+      })
+    })
+
+    this.load.start()
+  }
+
+  private dispose() {
+    this.serverConfig = undefined
+    this.room = undefined
+    this.localPlayer = undefined
+
+    this.debugText.destroy()
+    this.graphics.destroy()
+
+    Array.from(this.playerEntities.values()).forEach((entity) => entity.destroy())
+    this.playerEntities.clear()
+
+    if (this.rect !== undefined) {
+      this.rect.destroy()
+      this.rect = undefined
+    }
+
+    this.elapsedTime = 0
+  }
+
   private listenRoomEvents() {
+    if (this.room === undefined) {
+      return
+    }
     this.room.onError(this.onRoomError.bind(this))
     this.room.onLeave(this.onRoomLeave.bind(this))
 
@@ -124,12 +151,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async fetchConfigAndPrepareMap() {
-    this.serverConfig = await sendAsync(this.room, MessageType.FetchConfig)
+    this.serverConfig = await sendAsync(this.room!, MessageType.FetchConfig)
 
-    const rect = this.add
-      .rectangle(0, 0, this.serverConfig.mapSize.width, this.serverConfig.mapSize.height, 0xa4a4a4)
-      .setOrigin(0, 0)
-    rect.depth = -1
+    const { width, height } = this.serverConfig!.mapSize
+
+    this.rect = this.add.rectangle(0, 0, width, height, 0xa4a4a4).setOrigin(0, 0)
+    this.rect.depth = -1
   }
 
   private onRoomError(code: number, reason?: string) {
@@ -140,9 +167,9 @@ export class GameScene extends Phaser.Scene {
     if (code === RoomLeaveCode.AbnormalClosure) {
       window.location.reload()
     } else {
+      this.dispose()
       const reason = RoomLeaveCode[code]
       alert(`leave: ${code} ${reason}`)
-      window.location.reload()
     }
   }
 
@@ -150,7 +177,7 @@ export class GameScene extends Phaser.Scene {
     const entity = this.add.image(player.x, player.y, player.skin)
     this.playerEntities.set(sessionId, entity)
 
-    if (this.room.sessionId === sessionId) {
+    if (this.room!.sessionId === sessionId) {
       this.localPlayer = entity
       this.localPlayer.depth = 20
     }
@@ -181,7 +208,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private messageHandler_Ping() {
-    this.room.send(MessageType.Pong)
+    this.room!.send(MessageType.Pong)
   }
 
   private messageHandler_MaxPingReached(ping: number) {
@@ -190,13 +217,13 @@ export class GameScene extends Phaser.Scene {
 
   private drawText() {
     let text = ""
-    text += `Time: ${this.room.state.elapsedTime.toFixed(2)}` + "\n"
+    text += `Time: ${this.room!.state.elapsedTime.toFixed(2)}` + "\n"
 
     Array.from(this.playerEntities.keys()).forEach((sessionId: string, index: number) => {
       const entity = this.playerEntities.get(sessionId)!
       const ping = entity.data.values.ping
       text += `${index + 1}: ${sessionId} (${ping} ms)`
-      if (this.room.sessionId === sessionId) {
+      if (this.room!.sessionId === sessionId) {
         text += ` (You)`
       }
       text += "\n"
@@ -213,7 +240,7 @@ export class GameScene extends Phaser.Scene {
     for (const [sessionId, entity] of this.playerEntities) {
       const { serverX, serverY, serverAngle } = entity.data.values
 
-      const isMe = sessionId === this.room.sessionId
+      const isMe = sessionId === this.room!.sessionId
 
       const colorServerState = isMe
         ? config.gizmos.colors.localPlayerServerState
@@ -271,37 +298,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   private moveLocalPlayer() {
-    this.room.send(MessageType.Input, this.inputPayload)
+    const velocity = this.serverConfig!.player.velocity
+    const localPlayer = this.localPlayer!
+
+    this.room!.send(MessageType.Input, this.inputPayload)
 
     if (this.inputPayload.left) {
-      this.localPlayer.x -= this.serverConfig.player.velocity
+      localPlayer.x -= velocity
     } else if (this.inputPayload.right) {
-      this.localPlayer.x += this.serverConfig.player.velocity
+      localPlayer.x += velocity
     }
 
     if (this.inputPayload.up) {
-      this.localPlayer.y -= this.serverConfig.player.velocity
+      localPlayer.y -= velocity
     } else if (this.inputPayload.down) {
-      this.localPlayer.y += this.serverConfig.player.velocity
+      localPlayer.y += velocity
     }
   }
 
   private rotateLocalPlayer() {
+    const localPlayer = this.localPlayer!
     const pointer = this.input.activePointer
     const direction = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY)
-      .subtract(this.localPlayer)
+      .subtract(localPlayer)
       .normalize()
 
     const angle = Phaser.Math.Angle.WrapDegrees(
       Math.atan2(direction.y, direction.x) * Phaser.Math.RAD_TO_DEG - 90
     )
-    this.localPlayer.angle = angle
-    this.room.send(MessageType.Rotation, angle)
+    localPlayer.angle = angle
+    this.room!.send(MessageType.Rotation, angle)
   }
 
   private movePlayers() {
     for (const [sessionId, entity] of this.playerEntities) {
-      if (sessionId === this.room.sessionId) {
+      if (sessionId === this.room!.sessionId) {
         continue
       }
       const { serverX, serverY, serverAngle } = entity.data.values

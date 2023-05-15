@@ -2,6 +2,7 @@ import path from "path";
 import express from "express";
 import config from "@colyseus/tools";
 import { monitor } from "@colyseus/monitor";
+import { config as serverConfig } from "./config";
 
 /**
  * Import your Room files
@@ -33,6 +34,10 @@ export default config({
         app.get("/play", (req, res) => {
             const indexPath = path.join(publicPath, "index.html");
             res.sendFile(indexPath);
+        });
+
+        app.get("/config", (req, res) => {
+        	res.json(serverConfig);
         });
 
         /**
