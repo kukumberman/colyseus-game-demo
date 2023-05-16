@@ -1,5 +1,6 @@
 export type ServerConfig = {
-  tickRate: number
+  fixedSimulationTickRate: number
+  patchRate: number
   mapSize: {
     width: number
     height: number
@@ -8,5 +9,6 @@ export type ServerConfig = {
     velocity: number
   }
   maxAllowedPing: number
+  pingResponseMaxTime: number
   skins: string[]
 }

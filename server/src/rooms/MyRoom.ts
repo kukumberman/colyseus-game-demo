@@ -2,51 +2,19 @@ import { Room, Client } from "colyseus"
 import { MyRoomState, Player } from "@shared/schemas"
 import { MessageType, RoomLeaveCode } from "@shared/enums"
 import { config } from "../config"
-
-function validateSkin(value: unknown) {
-  const defaultSkin = config.skins[0]
-
-  const validateNumber = (valueAsNumber: number) => {
-    if (Number.isNaN(valueAsNumber) || !Number.isFinite(valueAsNumber)) {
-      return defaultSkin
-    }
-
-    if (!Number.isInteger(valueAsNumber)) {
-      valueAsNumber = Math.floor(valueAsNumber)
-    }
-
-    if (valueAsNumber < 0 || valueAsNumber >= config.skins.length) {
-      return defaultSkin
-    }
-
-    return config.skins[valueAsNumber]
-  }
-
-  if (typeof value === "string") {
-    if (config.skins.includes(value)) {
-      return value
-    }
-
-    const valueAsNumber = Number(value)
-    return validateNumber(valueAsNumber)
-  }
-
-  if (typeof value === "number") {
-    return validateNumber(value)
-  }
-
-  return defaultSkin
-}
+import { NameSanitizer, SkinSanitizer } from "../core/validation"
 
 export class MyRoom extends Room<MyRoomState> {
   private fixedTimeStep: number = 0
   private elapsedTime: number = 0
   private pingIntervalId!: NodeJS.Timer
+  private nameValidator!: NameSanitizer
+  private skinValidator!: SkinSanitizer
 
   onCreate(options: any) {
     this.setState(new MyRoomState())
     this.state.elapsedTime = 0
-    this.fixedTimeStep = 1000 / config.tickRate
+    this.fixedTimeStep = 1000 / config.fixedSimulationTickRate
 
     this.onMessage(MessageType.Input, this.inputMessageHandler.bind(this))
     this.onMessage(MessageType.Rotation, this.rotationMessageHandler.bind(this))
@@ -57,6 +25,10 @@ export class MyRoom extends Room<MyRoomState> {
 
     this.pingIntervalId = setInterval(() => this.sendPingMessage(), 1 * 1000)
     this.setSimulationInterval(this.simulationIntervalHandler.bind(this))
+    this.setPatchRate(1000 / config.patchRate)
+
+    this.nameValidator = new NameSanitizer("I'm Gay", 16)
+    this.skinValidator = new SkinSanitizer(config.skins[0], config.skins)
   }
 
   onJoin(client: Client, options: any) {
@@ -65,15 +37,15 @@ export class MyRoom extends Room<MyRoomState> {
     const player = new Player()
     player.sessionId = client.sessionId
 
-    // todo: validate incoming skin and name
-    player.skin = validateSkin(options.skin)
-    player.name = options.name
+    player.skin = this.skinValidator.sanitize(options.skin)
+    player.name = this.nameValidator.sanitize(options.name)
 
     player.x = Math.random() * config.mapSize.width
     player.y = Math.random() * config.mapSize.height
     player.angle = 0
     player.ping = 0
     player.lastPingTimestamp = Date.now()
+    player.lastPingResponseTimestamp = player.lastPingTimestamp
 
     this.state.players.set(client.sessionId, player)
   }
@@ -90,7 +62,8 @@ export class MyRoom extends Room<MyRoomState> {
 
   private pongMessageHandler(client: Client) {
     const player = this.state.players.get(client.sessionId)!
-    const ping = Date.now() - player.lastPingTimestamp
+    player.lastPingResponseTimestamp = Date.now()
+    const ping = player.lastPingResponseTimestamp - player.lastPingTimestamp
     if (ping > config.maxAllowedPing) {
       client.send(MessageType.MaxPingReached, ping)
     }
@@ -103,6 +76,8 @@ export class MyRoom extends Room<MyRoomState> {
       player.lastPingTimestamp = Date.now()
       client.send(MessageType.Ping)
     })
+
+    this.tryRemoveInactiveClients()
   }
 
   private simulationIntervalHandler(deltaTime: number) {
@@ -132,6 +107,16 @@ export class MyRoom extends Room<MyRoomState> {
         } else if (input.down) {
           player.y += config.player.velocity
         }
+      }
+    })
+  }
+
+  private tryRemoveInactiveClients() {
+    this.clients.forEach((client) => {
+      const player = this.state.players.get(client.sessionId)!
+      const timeDifference = Date.now() - player.lastPingResponseTimestamp
+      if (timeDifference > config.pingResponseMaxTime) {
+        client.leave(RoomLeaveCode.MaxPingReached)
       }
     })
   }

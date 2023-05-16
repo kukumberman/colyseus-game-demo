@@ -10,6 +10,7 @@ export class Player extends Schema {
   @type("uint16") ping!: number
 
   lastPingTimestamp!: number
+  lastPingResponseTimestamp!: number
   inputQueue: any[] = []
 }
 
