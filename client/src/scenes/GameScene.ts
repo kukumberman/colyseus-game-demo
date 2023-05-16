@@ -169,7 +169,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.dispose()
       const reason = RoomLeaveCode[code]
-      alert(`leave: ${code} ${reason}`)
+      console.log(`leave: ${code} ${reason}`)
     }
   }
 

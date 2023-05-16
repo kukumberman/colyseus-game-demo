@@ -37,7 +37,7 @@ export function LobbyView(props: LobbyViewProps) {
 
   useEffect(() => {
     const abortController = new AbortController()
-    fetchConfig(abortController.signal)
+    fetchConfigAndModifyState(abortController.signal)
     return () => {
       abortController.abort()
     }
@@ -66,7 +66,7 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [config])
 
-  async function fetchConfig(signal?: AbortSignal) {
+  async function fetchConfigAndModifyState(signal?: AbortSignal) {
     try {
       const data = await fetchConfigAsync(signal)
       return setConfig(data)
@@ -153,16 +153,53 @@ export function LobbyView(props: LobbyViewProps) {
         <div>
           {error!.name} - {error!.message}
         </div>
-        <button onClick={() => fetchConfig()}>Retry</button>
+        <button onClick={() => fetchConfigAndModifyState()}>Retry</button>
       </div>
     )
   }
 
+  function displayContents() {
+    return (
+      <>
+        <h1>Welcome</h1>
+        <div>Lobby</div>
+        {config !== undefined ? displayConnected() : <div>Not connected</div>}
+        {config === undefined && error !== undefined ? displayRetry() : null}
+      </>
+    )
+  }
+
   return (
-    <div>
-      <div>Lobby</div>
-      {config !== undefined ? displayConnected() : <div>Not connected</div>}
-      {config === undefined && error !== undefined ? displayRetry() : null}
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 500,
+            backgroundColor: "white",
+            pointerEvents: "all",
+          }}
+        >
+          {displayContents()}
+        </div>
+      </div>
     </div>
   )
 }

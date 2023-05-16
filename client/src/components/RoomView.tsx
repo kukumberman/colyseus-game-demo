@@ -83,8 +83,13 @@ export function RoomView(props: RoomViewProps) {
 
     if (currentRoom !== null) {
       game!.events.emit("FOOBAR", client, currentRoom, null)
+      //! room state is empty
       updatePlayerList()
       intervalId = setInterval(updatePlayerList, 1 * 1000)
+
+      currentRoom.onLeave((code) => {
+        console.log("ROOM ON LEAVE:", code)
+      })
     }
 
     return () => {
@@ -110,7 +115,7 @@ export function RoomView(props: RoomViewProps) {
 
   function displayPlayerList() {
     return (
-      <div>
+      <>
         <div>Players: {players.length}</div>
         <ul>
           {players.map((player, index) => (
@@ -122,15 +127,64 @@ export function RoomView(props: RoomViewProps) {
             />
           ))}
         </ul>
+      </>
+    )
+  }
+
+  function displayContents() {
+    return (
+      <div
+        style={{
+          width: 500,
+          backgroundColor: "white",
+          pointerEvents: "all",
+        }}
+      >
+        <Link to="/">Home</Link>
+        <h1>
+          {currentRoom!.name} ({currentRoom!.roomId})
+        </h1>
+        {displayPlayerList()}
+      </div>
+    )
+  }
+
+  function displayConnection() {
+    return (
+      <div
+        style={{
+          width: 300,
+          backgroundColor: "white",
+        }}
+      >
+        <h1>Joining...</h1>
       </div>
     )
   }
 
   return (
-    <div>
-      <Link to="/">Home</Link>
-      {currentRoom !== null ? <h1>{currentRoom.roomId}</h1> : <div>Joining {roomId} ...</div>}
-      {displayPlayerList()}
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        {currentRoom === null ? displayConnection() : displayContents()}
+      </div>
     </div>
   )
 }

@@ -7,9 +7,26 @@ export function GameView() {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
 
+  function onEnterFullscreen() {
+    setFullscreen(true)
+  }
+
+  function onLeaveFullscreen() {
+    setFullscreen(false)
+  }
+
   useEffect(() => {
     if (game !== undefined) {
       setFullscreenSupported(game.scale.fullscreen.available)
+      game.scale.addListener(Phaser.Scale.Events.ENTER_FULLSCREEN, onEnterFullscreen)
+      game.scale.addListener(Phaser.Scale.Events.LEAVE_FULLSCREEN, onLeaveFullscreen)
+    }
+
+    return () => {
+      if (game !== undefined) {
+        game.scale.removeListener(Phaser.Scale.Events.ENTER_FULLSCREEN, onEnterFullscreen)
+        game.scale.removeListener(Phaser.Scale.Events.LEAVE_FULLSCREEN, onLeaveFullscreen)
+      }
     }
   }, [game])
 
@@ -17,7 +34,6 @@ export function GameView() {
     if (game === undefined) {
       return
     }
-    setFullscreen(!game.scale.isFullscreen)
     if (game.scale.isFullscreen) {
       game.scale.stopFullscreen()
     } else {
@@ -25,31 +41,40 @@ export function GameView() {
     }
   }
 
+  function prettyFullscreenText() {
+    return fullscreen ? "Minimize" : "Fullscreen"
+  }
+
   function overlay() {
     return (
-      <>
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
+      >
         {fullscreenSupported ? (
           <div>
-            <button onClick={onClickToggleFullscreen}>
-              {fullscreen ? "Minimize" : "Fullscreen"}
+            <button
+              onClick={onClickToggleFullscreen}
+              style={{
+                width: 100,
+                height: 100,
+              }}
+            >
+              {prettyFullscreenText()}
             </button>
           </div>
         ) : null}
-        <Outlet />
-      </>
+      </div>
     )
   }
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        right: 0,
-        top: 0,
-        backgroundColor: "white",
-      }}
-    >
+    <>
       {overlay()}
-    </div>
+      <Outlet />
+    </>
   )
 }
