@@ -6,9 +6,12 @@ import { fetchConfigAsync } from "../colyseus"
 import { RoomLinkView } from "./RoomLinkView"
 import { SkinSelectorView } from "./SkinSelectorView"
 import { ServerConfig } from "@shared/types"
+import { resolveWithMinimumDelay } from "../utils"
 
 type LobbyViewProps = {
   roomName: string
+  loadMininumDelay: number
+  roomListRefreshRateInSeconds: number
 }
 
 export function LobbyView(props: LobbyViewProps) {
@@ -20,20 +23,12 @@ export function LobbyView(props: LobbyViewProps) {
     [SKIN_KEY]: "",
   })
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [config, setConfig] = useState<ServerConfig>()
+  const [error, setError] = useState<Error>()
+
   const searchParamsAsObject = Object.fromEntries(Array.from(searchParams.entries()))
   const { name } = searchParamsAsObject
-
-  const [config, setConfig] = useState<ServerConfig>()
-  const [rooms, setRooms] = useState<RoomAvailable[]>([])
-  const [error, setError] = useState<Error>()
-  const navigate = useNavigate()
-
-  const { client } = useAppContext()
-
-  // todo
-  // use state machine
-  // if config fetch failed and error is not aborted - display message (propably server is not running) and retry button
-  // if config fetch is success - retry room list fetch automatically with 1 second interval
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -43,37 +38,17 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [])
 
-  useEffect(() => {
-    const fetchAvailableRoomsAsync = async () => {
-      try {
-        const rooms = await client.getAvailableRooms(props.roomName)
-        setRooms(rooms)
-      } catch (e: unknown) {
-        console.log("Failed to fetch available rooms")
-        if (e instanceof Error) {
-          console.log(e.name)
-        }
-        console.error(e)
-      }
-    }
-
-    if (config !== undefined) {
-      fetchAvailableRoomsAsync()
-    }
-
-    return () => {
-      // AbortController is not supported in colyseus client
-    }
-  }, [config])
-
   async function fetchConfigAndModifyState(signal?: AbortSignal) {
     try {
-      const data = await fetchConfigAsync(signal)
-      return setConfig(data)
+      setIsLoading(true)
+      const data = await resolveWithMinimumDelay(fetchConfigAsync(signal), props.loadMininumDelay)
+      setConfig(data)
+      setIsLoading(false)
     } catch (error) {
       if (error instanceof Error) {
         if (error.name !== "AbortError") {
           setError(error)
+          setIsLoading(false)
         }
       }
     }
@@ -101,27 +76,8 @@ export function LobbyView(props: LobbyViewProps) {
     return value
   }
 
-  function roomList() {
-    return (
-      <div>
-        <ul>
-          {rooms.map((room) => (
-            <RoomLinkView
-              key={room.roomId}
-              room={room}
-              href={createHrefWithId(room.roomId)}
-            />
-          ))}
-        </ul>
-      </div>
-    )
-  }
-
-  function emptyRoomList() {
-    return <div>No rooms found</div>
-  }
-
   function displayConnected() {
+    const skins = config!.skins
     return (
       <div>
         <div>Name</div>
@@ -131,28 +87,28 @@ export function LobbyView(props: LobbyViewProps) {
           onChange={(event) => setName(event.target.value)}
         />
         <SkinSelectorView
-          length={config!.skins.length}
+          length={skins.length}
           onChanged={onSkinSelectorChanged}
-          imagePathResolver={(skinIndex) => `/assets/${config!.skins[skinIndex]}.png`}
+          imagePathResolver={(skinIndex) => `/assets/${skins[skinIndex]}.png`}
         />
-        {rooms.length > 0 ? roomList() : emptyRoomList()}
-        <button
-          onClick={() => {
-            navigate(createHrefWithId("joinOrCreate"))
-          }}
-        >
-          joinOrCreate
-        </button>
+        <RoomList
+          roomName={props.roomName}
+          refreshRateInSeconds={props.roomListRefreshRateInSeconds}
+          loadMininumDelay={props.loadMininumDelay}
+          createHrefWithId={createHrefWithId}
+        />
       </div>
     )
   }
 
   function displayRetry() {
+    function errorMessage() {
+      return `${error!.name} - ${error!.message}`
+    }
+
     return (
       <div>
-        <div>
-          {error!.name} - {error!.message}
-        </div>
+        <div>An error occured when loading ({errorMessage()})</div>
         <button onClick={() => fetchConfigAndModifyState()}>Retry</button>
       </div>
     )
@@ -162,9 +118,9 @@ export function LobbyView(props: LobbyViewProps) {
     return (
       <>
         <h1>Welcome</h1>
-        <div>Lobby</div>
-        {config !== undefined ? displayConnected() : <div>Not connected</div>}
-        {config === undefined && error !== undefined ? displayRetry() : null}
+        {isLoading ? <div>Loading...</div> : null}
+        {!isLoading && config !== undefined ? displayConnected() : null}
+        {error !== undefined ? displayRetry() : null}
       </>
     )
   }
@@ -200,6 +156,90 @@ export function LobbyView(props: LobbyViewProps) {
           {displayContents()}
         </div>
       </div>
+    </div>
+  )
+}
+
+type RoomListProps = {
+  roomName: string
+  refreshRateInSeconds: number
+  loadMininumDelay: number
+  createHrefWithId: (id: string) => string
+}
+
+export function RoomList(props: RoomListProps) {
+  const { client } = useAppContext()
+  const navigate = useNavigate()
+  const [rooms, setRooms] = useState<RoomAvailable<any>[]>([])
+  const [countdown, setCountdown] = useState(props.refreshRateInSeconds)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (!isLoading) {
+        const newCountdown = countdown - 1
+        if (newCountdown === 0) {
+          setIsLoading(true)
+        }
+        setCountdown(newCountdown)
+      }
+    }, 1 * 1000)
+
+    return () => {
+      clearTimeout(id)
+    }
+  }, [countdown, isLoading])
+
+  useEffect(() => {
+    if (isLoading) {
+      resolveWithMinimumDelay(
+        client.getAvailableRooms(props.roomName),
+        props.loadMininumDelay
+      ).then((rooms) => {
+        setRooms(rooms)
+        setIsLoading(false)
+        setCountdown(props.refreshRateInSeconds)
+      })
+    }
+  }, [isLoading])
+
+  function roomList(rooms: RoomAvailable<any>[]) {
+    return (
+      <ul>
+        {rooms.map((room) => (
+          <RoomLinkView
+            key={room.roomId}
+            room={room}
+            href={props.createHrefWithId(room.roomId)}
+          />
+        ))}
+      </ul>
+    )
+  }
+
+  function emptyRoomList() {
+    return <div>No rooms found</div>
+  }
+
+  function displayLoading() {
+    return <div>Loading...</div>
+  }
+
+  function displayCountdown() {
+    return <div>Updating in {countdown}</div>
+  }
+
+  return (
+    <div>
+      {isLoading ? displayLoading() : displayCountdown()}
+      {rooms.length > 0 ? roomList(rooms) : emptyRoomList()}
+      <button
+        onClick={() => {
+          navigate(props.createHrefWithId("joinOrCreate"))
+        }}
+      >
+        joinOrCreate
+      </button>
     </div>
   )
 }

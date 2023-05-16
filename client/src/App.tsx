@@ -18,7 +18,13 @@ export function App(props: AppProps) {
         >
           <Route
             path="/"
-            element={<LobbyView roomName={roomName} />}
+            element={
+              <LobbyView
+                roomName={roomName}
+                loadMininumDelay={1000}
+                roomListRefreshRateInSeconds={5}
+              />
+            }
           />
           <Route
             path="room/:id"
