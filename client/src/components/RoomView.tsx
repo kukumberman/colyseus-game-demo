@@ -82,7 +82,7 @@ export function RoomView(props: RoomViewProps) {
     let intervalId: NodeJS.Timer
 
     if (currentRoom !== null) {
-      game!.events.emit("FOOBAR", client, currentRoom, null)
+      game?.events.emit("FOOBAR", client, currentRoom, null)
       //! room state is empty
       updatePlayerList()
       intervalId = setInterval(updatePlayerList, 1 * 1000)

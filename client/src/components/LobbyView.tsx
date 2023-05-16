@@ -41,8 +41,10 @@ export function LobbyView(props: LobbyViewProps) {
   async function fetchConfigAndModifyState(signal?: AbortSignal) {
     try {
       setIsLoading(true)
+      setError(undefined)
       const data = await resolveWithMinimumDelay(fetchConfigAsync(signal), props.loadMininumDelay)
       setConfig(data)
+      setError(undefined)
       setIsLoading(false)
     } catch (error) {
       if (error instanceof Error) {
@@ -192,14 +194,18 @@ export function RoomList(props: RoomListProps) {
 
   useEffect(() => {
     if (isLoading) {
-      resolveWithMinimumDelay(
-        client.getAvailableRooms(props.roomName),
-        props.loadMininumDelay
-      ).then((rooms) => {
-        setRooms(rooms)
-        setIsLoading(false)
-        setCountdown(props.refreshRateInSeconds)
-      })
+      resolveWithMinimumDelay(client.getAvailableRooms(props.roomName), props.loadMininumDelay)
+        .then((rooms) => {
+          setRooms(rooms)
+          setIsLoading(false)
+          setCountdown(props.refreshRateInSeconds)
+        })
+        .catch((error: unknown) => {
+          setIsLoading(false)
+          setCountdown(props.refreshRateInSeconds)
+          console.log("error occurred while fetching rooms")
+          console.error(error)
+        })
     }
   }, [isLoading])
 
